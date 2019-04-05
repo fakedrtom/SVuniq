@@ -11,11 +11,16 @@ def subtract_overlaps(key, values):
     tmpA = [(sv[0],sv[1],sv[2],sv[3])]
     tmpAbed = BedTool(tmpA)
     tmpBbed = BedTool(values)
+    AN = int(0)
+    AC = int(0)
+    for v in values:
+        AN += int(v[4])
+        AC += int(v[5])
     subtract = tmpAbed.subtract(tmpBbed)
     for interval in subtract:
-        cut = 'cut:' + '_'.join(sv[0:3])
+        cut = 'cut:' + '_'.join(sv[0:3]) + ':' + str(AN) + ':' + str(AC)
         svlist = [interval[0],interval[1],interval[2],interval[3],cut]
-        uniques.append(svlist)
+        uniques[interval[3]].append(svlist)
 
 vcf = cyvcf2.VCF(sys.argv[1], gts012=True)
 popbed = BedTool(sys.argv[2])#.split(',')
@@ -33,14 +38,16 @@ for v in vcf:
 
 vcfbed = BedTool(tmpbed)
 intersect = vcfbed.intersect(popbed, wao=True)
-uniques = []
+uniques = {}
 overlaps = {}
 for interval in intersect:
     chrom1,start1,end1,type1,chrom2,start2,end2,gnomadid,type2,an,ac,homref,het,homalt,shared = interval
     sv = [str(chrom1),str(start1),str(end1),type1]
+    if type1 not in uniques:
+        uniques[type1] = []
     if chrom2 == '.':
-        sv.append('uncut')
-        uniques.append(sv)
+        sv.append('uncut:' + '_'.join([str(chrom1),str(start1),str(end1)]))
+        uniques[type1].append(sv)
     else:
         key = ':'.join(sv)
         if key not in overlaps:
@@ -52,29 +59,26 @@ for interval in intersect:
 for key in overlaps:
     if len(overlaps[key]) == 0:
         sv = key.split(':')
-        svlist = [str(sv[0]),str(sv[1]),str(sv[2]),sv[3],'uncut']
-        uniques.append(svlist)
+        svlist = [str(sv[0]),str(sv[1]),str(sv[2]),sv[3],'uncut:' + '_'.join([str(sv[0]),str(sv[1]),str(sv[2])])]
+        uniques[sv[3]].append(svlist)
     else:
         subtract_overlaps(key,overlaps[key])
 
-uniquesbed = BedTool(uniques)
-uniquesbed.sort().saveas('uniques.bed')
+merged = []
+for svtype in uniques:
+    svbed = BedTool(uniques[svtype])
+    sortmerge = svbed.sort().merge(c="4,5", o="collapse")
+    for interval in sortmerge:
+        merged.append(interval)
 
-#cleanup = open('tmpuniqs.bed', 'r')
-#svtypes = {}
-#for line in cleanup:
-#    fields = line.rstrip('\n').split('\t')
-#    chrom,start,end,svtype,cut = fields[0:5]
-#    if svtype not in svtypes:
-#        svtypes[svtype] = []
-#    svtypes[svtype].append(fields)
+mergedbed = BedTool(merged)
+final = []
+for interval in mergedbed.sort():
+    chrom, start, end, svtypes, chunks = interval
+    svtype = list(set(svtypes.split(',')))
+    chunk = list(set(chunks.split(',')))
+    out = [str(chrom), str(start), str(end), ','.join(svtype), ','.join(chunk)]
+    final.append(out)
 
-#for svtype in svtypes:
-#    tmp = open('tmpclean.bed', 'w')
-#    for chunk in svtypes[svtype]:
-#        tmp.write('\t'.join(chunk) + '\n')
-#    tmp.close()
-#    clean = BedTool('tmpclean.bed')
-#    sort = clean.sort()
-#    merged = sort.merge()
-    
+finalbed = BedTool(final)
+finalbed.sort().saveas('uniques.bed')
