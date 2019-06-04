@@ -31,7 +31,7 @@ for v in vcf:
     end = v.INFO.get('END')
     if v.INFO.get('SVTYPE') is not None:
         svtype=v.INFO.get('SVTYPE')
-    if svtype == 'DEL' or svtype == 'DUP' or svtype == 'INV':
+    if svtype != 'BND':# or svtype == 'DUP' or svtype == 'INV':
         if end > pos:
             out = [str(chrom), str(pos), str(end), svtype]
             tmpbed.append(out)
@@ -40,6 +40,8 @@ vcfbed = BedTool(tmpbed)
 intersect = vcfbed.intersect(popbed, wao=True)
 uniques = {}
 overlaps = {}
+uniqs = 0
+overs = 0
 for interval in intersect:
     chrom1,start1,end1,type1,chrom2,start2,end2,gnomadid,type2,an,ac,homref,het,homalt,shared = interval
     sv = [str(chrom1),str(start1),str(end1),type1]
@@ -48,6 +50,7 @@ for interval in intersect:
     if chrom2 == '.':
         sv.append('uncut:' + '_'.join([str(chrom1),str(start1),str(end1)]))
         uniques[type1].append(sv)
+        uniqs += 1
     else:
         key = ':'.join(sv)
         if key not in overlaps:
@@ -55,12 +58,14 @@ for interval in intersect:
         if type1 == type2:
             overlap = [str(chrom2),str(start2),str(end2),type2,str(an),str(ac)]
             overlaps[key].append(overlap)
+            overs += 1
 
 for key in overlaps:
     if len(overlaps[key]) == 0:
         sv = key.split(':')
         svlist = [str(sv[0]),str(sv[1]),str(sv[2]),sv[3],'uncut:' + '_'.join([str(sv[0]),str(sv[1]),str(sv[2])])]
         uniques[sv[3]].append(svlist)
+        uniqs += 1
     else:
         subtract_overlaps(key,overlaps[key])
 
@@ -73,12 +78,18 @@ for svtype in uniques:
 
 mergedbed = BedTool(merged)
 final = []
+counts = 0
 for interval in mergedbed.sort():
     chrom, start, end, svtypes, chunks = interval
     svtype = list(set(svtypes.split(',')))
     chunk = list(set(chunks.split(',')))
     out = [str(chrom), str(start), str(end), ','.join(svtype), ','.join(chunk)]
     final.append(out)
+    counts += 1
 
 finalbed = BedTool(final)
 finalbed.sort().saveas('uniques.bed')
+
+print uniqs, 'completely unique SVs with no overlaps'
+print overs, 'matching SV type overlaps found'
+print counts, 'unique SV or SV chunks after merging listed in uniques.bed'
