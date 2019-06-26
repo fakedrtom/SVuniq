@@ -24,6 +24,11 @@ parser.add_argument('-ci', '--ci',
                     dest="ci",
                     choices=['in','out'],
                     help='option to use out inner or outer confidence intervals (CIPOS95, CIEND95) for SV boundaries, must answer "in" or "out"')
+parser.add_argument('-minf', '--minf',
+                    metavar='MINIMUM ALLELE FREQUENCY',
+                    dest="minf",
+                    type=float,
+                    help='option to only include SVs from the popoulation AFs bed that exceed a minimum AF threshold')
 
 args = parser.parse_args()
 if args.i is None:
@@ -41,6 +46,10 @@ if args.pop is not None:
     popbed = BedTool(pop)
 else:
     raise NameError('please provide path to population AF bed file with -pop')
+if args.minf is not None:
+    minf = float(args.minf)
+    if minf > 1 or minf < 0:
+        raise NameError('minimum frequency must be between 0 and 1.0')
 
 def subtract_overlaps(key, values):
 #    tmpA = open('tmpA.bed', 'w')
@@ -113,7 +122,11 @@ for interval in intersect:
         key = ':'.join(sv)
         if key not in overlaps:
             overlaps[key] = []
-        if type1 == type2:
+        if type1 == type2 and args.minf is None:
+            overlap = [str(chrom2),str(start2),str(end2),type2,str(an),str(ac),str(af)]
+            overlaps[key].append(overlap)
+            overs += 1
+        elif type1 == type2 and args.minf is not None and float(af) > minf:
             overlap = [str(chrom2),str(start2),str(end2),type2,str(an),str(ac),str(af)]
             overlaps[key].append(overlap)
             overs += 1
