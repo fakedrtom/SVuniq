@@ -11,6 +11,28 @@ Work in progress...
 Installation
 ============
 
+Usage
+======
+
+```
+usage: svuniq.py [-h] [-i INPUT VCF] [-pop PATH TO BED]
+                 [-ci USE CI BOUNDARIES] [-minf MINIMUM ALLELE FREQUENCY]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT VCF, --in INPUT VCF
+                        path to VCF
+  -pop PATH TO BED, --pop PATH TO BED
+                        path to SV bed file with population AFs
+  -ci USE CI BOUNDARIES, --ci USE CI BOUNDARIES
+                        option to use out inner or outer confidence intervals
+                        (CIPOS95, CIEND95) for SV boundaries, must answer "in"
+                        or "out"
+  -minf MINIMUM ALLELE FREQUENCY, --minf MINIMUM ALLELE FREQUENCY
+                        option to only include SVs from the popoulation AFs
+                        bed that exceed a minimum AF threshold
+```
+
 Documentation
 ================
 
